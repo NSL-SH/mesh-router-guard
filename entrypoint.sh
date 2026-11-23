@@ -175,6 +175,17 @@ done
 load_table "$LIST"
 write_config
 
+# The local API usually starts after this container (same stack, slower to boot). Wait
+# for it, so the bouncer's first request is not a refused connection that exits it and
+# restarts the container. Bounded: after LAPI_WAIT_SECONDS the bouncer starts anyway and
+# the restart policy takes over.
+i=0
+until curl -s -o /dev/null --max-time 3 "$LAPI_URL" || [ "$i" -ge "${LAPI_WAIT_SECONDS:-120}" ]; do
+    [ "$i" -eq 0 ] && log "waiting for the local API at $LAPI_URL"
+    sleep 3 & wait $! || true
+    i=$((i + 3))
+done
+
 (
     trap - TERM INT
     while sleep $((REFRESH_MINUTES * 60)); do

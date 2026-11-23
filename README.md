@@ -72,6 +72,7 @@ mesh-router-guard:
 | `GUARD_EXEMPT` | — | Extra addresses or CIDRs, space- or comma-separated |
 | `GUARD_REFRESH_MINUTES` | `30` | How often the backend's list is re-read |
 | `GUARD_RETRY_SECONDS` | `30` | Retry interval while no list is known |
+| `LAPI_WAIT_SECONDS` | `120` | How long to wait for the local API before starting the bouncer anyway |
 | `GUARD_STATE_DIR` | `/var/lib/mesh-router-guard` | Where the last backend list is kept |
 | `GUARD_TABLE` | `nsl-guard` | Table name |
 
