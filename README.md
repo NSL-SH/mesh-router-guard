@@ -76,6 +76,40 @@ mesh-router-guard:
 | `GUARD_STATE_DIR` | `/var/lib/mesh-router-guard` | Where the last backend list is kept |
 | `GUARD_TABLE` | `nsl-guard` | Table name |
 
+## guard-sync: the fleet list
+
+The image also carries `guard-sync` (`cmd/guard-sync`, Go, stdlib only), run as a **separate
+container** with `entrypoint: [guard-sync]`, no privileges and no host network. It is the box's link
+to the NSL fleet ban list (mesh-router-backend `Guard.ts`). Every `GUARD_SYNC_MINUTES`:
+
+1. **Report** what this box's own CrowdSec banned: alerts from `crowdsecurity/*` scenarios on a
+   single address with a decision of origin `crowdsec` (imported, manual and allowlisted sources
+   never qualify), as `{ip, scenario, at}` to `POST <backend>/router/api/guard/v1/reports/<userid>/<sig>`.
+2. **Import** `GET <backend>/router/api/guard/v1/list/<userid>/<sig>`: fleet bans plus the public
+   lists, an Ed25519-signed document. The key is pinned at first use (or must equal
+   `GUARD_LIST_KEY`); a list under another key is refused. Each entry becomes a CrowdSec decision
+   (origin `nsl-fleet` / `nsl-<list>`, scenario hung off an `nsl/import` alert), lasting until the
+   entry's `until`: renewed when it nears its end (public lists: about every two days), deleted
+   once the list drops it. **Any value an allowlist of the box overlaps is left out**: the local
+   API does not check allowlists for decisions that arrive with their alert, so guard-sync does.
+
+Decisions reach the bouncer's nft sets like local ones; nothing changes on the enforcement side.
+
+| Variable | Default | |
+|---|---|---|
+| `PROVIDER_STR` | — | `<backend>,<userid>,<signature>`, the box credential |
+| `LAPI_URL` | `http://crowdsec:8080/` | CrowdSec's local API, as a machine (watcher) |
+| `SYNC_MACHINE` | `guard-sync` | Machine name registered in CrowdSec |
+| `SYNC_PASSWORD` / `SYNC_PASSWORD_FILE` | — | Its password |
+| `GUARD_SYNC_MINUTES` | `60` | Interval (+ up to 1/6 jitter), minimum 5 |
+| `GUARD_REPORT` / `GUARD_IMPORT` | `on` | `off` turns either half off |
+| `GUARD_LIST_KEY` | — | Pin this base64 public key instead of the first one seen |
+| `GUARD_STATE_DIR` | `/var/lib/mesh-router-guard` | `sync.json`: pinned key, last report and import |
+
+```bash
+docker run --rm -v "$PWD":/src -w /src golang:1.25 go test ./...   # plan, list parsing, pinning
+```
+
 ## Inspecting a box
 
 ```bash
